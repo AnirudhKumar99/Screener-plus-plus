@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Wallet {
+  id          Int      @id @default(autoincrement())
+  cashBalance Float    @default(0.0)
+  lastUpdated DateTime @default(now())
+}
+
+model Portfolio {
+  stockCode   String @id
+  companyName String
+  qty         Int
+  avgBuyPrice Float
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @default(now())
+  stockCode String
+  action    String   // "BUY" or "SELL"
+  qty       Int
+  price     Float
+  fees      Float
+}
+
+model NetWorthHistory {
+  id            Int      @id @default(autoincrement())
+  recordDate    DateTime @unique @default(now())
+  totalNetWorth Float
+}
