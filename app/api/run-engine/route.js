@@ -4,7 +4,7 @@ import { runTradingEngine } from '@/lib/engine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // 60 seconds execution limit
 
-export async function GET(request) {
+export async function POST(request) {
     try {
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET || 'dev-secret-token';
@@ -13,7 +13,14 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const result = await runTradingEngine();
+        const body = await request.json();
+        const { screenerId } = body;
+
+        if (!screenerId) {
+            return NextResponse.json({ error: 'Missing screenerId' }, { status: 400 });
+        }
+
+        const result = await runTradingEngine(screenerId);
 
         if (result.success) {
             return NextResponse.json(result, { status: 200 });

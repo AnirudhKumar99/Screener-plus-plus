@@ -7,21 +7,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Screener {
+  id              String            @id @default(uuid())
+  name            String
+  url             String
+  wallet          Wallet?
+  portfolios      Portfolio[]
+  transactions    Transaction[]
+  netWorthHistory NetWorthHistory[]
+}
+
 model Wallet {
-  id          Int      @id @default(autoincrement())
-  cashBalance Float    @default(0.0)
+  id          Int      @id @default(1)
+  screenerId  String   @unique
+  screener    Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  cashBalance Float
   lastUpdated DateTime @default(now())
 }
 
 model Portfolio {
-  stockCode   String @id
+  screenerId  String
+  screener    Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  stockCode   String
   companyName String
   qty         Int
   avgBuyPrice Float
+  lastUpdated DateTime @default(now())
+
+  @@id([screenerId, stockCode])
 }
 
 model Transaction {
   id        Int      @id @default(autoincrement())
+  screenerId String
+  screener  Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
   date      DateTime @default(now())
   stockCode String
   action    String   // "BUY" or "SELL"
@@ -32,6 +51,10 @@ model Transaction {
 
 model NetWorthHistory {
   id            Int      @id @default(autoincrement())
-  recordDate    DateTime @unique @default(now())
+  screenerId    String
+  screener      Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  recordDate    DateTime @default(now())
   totalNetWorth Float
+
+  @@unique([screenerId, recordDate])
 }

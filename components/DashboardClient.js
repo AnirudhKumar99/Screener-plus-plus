@@ -1,54 +1,58 @@
-"use client";
+'use client';
 
 import { useState } from "react";
-import { Play, RotateCw } from "lucide-react";
+import { Play } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
-export function DashboardClient() {
-    const [loading, setLoading] = useState(false);
+export function DashboardClient({ activeScreenerId }) {
     const router = useRouter();
+    const [isRunning, setIsRunning] = useState(false);
 
     const handleRunEngine = async () => {
-        setLoading(true);
+        if (!activeScreenerId) return;
+
+        setIsRunning(true);
         const toastId = toast.loading("Executing quantitative model and rebalancing portfolio...");
 
         try {
-            // In production, the cronSecret matches what's in the env. For demo, we use dev-secret-token.
-            const res = await fetch("/api/run-engine", {
+            // In a real app, you'd want a secure way to pass the cron token, 
+            // but for this dashboard we use it to emulate the cron job
+            const response = await fetch('/api/run-engine', {
+                method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer dev-secret-token'
-                }
+                    'Authorization': 'Bearer dev-secret-token',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ screenerId: activeScreenerId })
             });
 
-            const data = await res.json();
+            const data = await response.json();
 
-            if (res.ok) {
+            if (response.ok) {
                 toast.success(`Rebalancing complete! New Net Worth: ₹${data.netWorth?.toLocaleString()}`, { id: toastId, duration: 4000 });
                 router.refresh(); // Tells Next.js to re-fetch Server Components (app/page.js)
             } else {
-                throw new Error(data.error || "Execution failed");
+                toast.error(`Engine returned error: ${data.error}`, { id: toastId, duration: 5000 });
             }
         } catch (error) {
             console.error(error);
             toast.error(`Error: ${error.message}`, { id: toastId, duration: 5000 });
         } finally {
-            setLoading(false);
+            setIsRunning(false);
         }
     };
 
     return (
         <button
             onClick={handleRunEngine}
-            disabled={loading}
-            className="flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg shadow-md transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isRunning || !activeScreenerId}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-sm
+                ${isRunning || !activeScreenerId ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-md'}`}
         >
-            {loading ? (
-                <RotateCw className="animate-spin" size={18} />
-            ) : (
-                <Play size={18} />
-            )}
-            <span>{loading ? "Engine Running..." : "Force Run Engine"}</span>
+            <Play size={16} className={isRunning ? 'animate-pulse' : ''} />
+            {isRunning ? 'Running...' : 'Run Engine'}
         </button>
     );
 }
