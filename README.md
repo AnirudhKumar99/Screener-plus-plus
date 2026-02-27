@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# QuantTrader - Quantitative Paper Trading System
 
-## Getting Started
+A Next.js (App Router) based zero-touch quantitative paper trading system. This application automatically scrapes financial data, ranks stocks based on a custom algorithm, manages a virtual portfolio in a SQLite database, and provides a real-time interactive dashboard.
 
-First, run the development server:
+## 🏗️ Project Structure
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+The project follows a standard Next.js App Router structure with dedicated directories for the database and core trading logic.
+
+```text
+stocks_nodejs/
+├── app/                        # Next.js App Router (Frontend & API)
+│   ├── api/run-engine/         # Serverless API endpoint to manually trigger the trading engine
+│   ├── layout.js               # Root layout, includes the NextThemes provider
+│   ├── page.js                 # Main Dashboard Server Component (Fetches SQLite data)
+│   └── globals.css             # Tailwind & Global styles
+├── components/                 # Reusable React UI Components
+│   ├── DashboardClient.js      # Client component spanning the "Force Run Engine" button and toast logic
+│   ├── HoldingsTable.js        # Server-rendered table displaying current portfolio & live CMP
+│   ├── KPIStats.js             # Top-level cards for Net Worth, Cash, Deployed Capital
+│   ├── NetWorthChart.js        # Recharts interactive line chart
+│   ├── PortfolioAllocation.js  # Recharts pie chart for portfolio weighting
+│   ├── ThemeProvider.js        # next-themes wrapper
+│   └── TransactionsTable.js    # Paginated log of historical BUYS and SELLS
+├── lib/                        # Core Backend Logic
+│   ├── engine.js               # Algorithmic Trading Engine (Sync, Sell, Buy, Value phases)
+│   ├── prisma.js               # Prisma ORM singleton client
+│   └── scraper.js              # Cheerio web scraper and normalization/ranking math
+├── prisma/                     # Database Schema & File
+│   ├── dev.db                  # Local SQLite database file
+│   └── schema.prisma           # Prisma Schema defining Wallet, Portfolio, Transaction, NetWorthHistory
+├── test-engine.js              # Sandbox script to test engine
+└── test-scraper.js             # Sandbox script to test Screener.in limits
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔍 Key Screener URLs & How They Are Used
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+This system relies on live market data scraped directly from [Screener.in](https://screener.in). 
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The `lib/scraper.js` file primarily uses these two dynamic URLs:
 
-## Learn More
+### 1. The Screen Ranking Query (Top 10 Finder)
+🔗 **URL:** `https://www.screener.in/screens/3506580/weekly-update/?page={X}`
+*   **What it does:** This URL points to a specific custom screen created on Screener.in that filters the entire Indian stock market down to a broad list of candidates based on specific fundamental minimums.
+*   **How the app uses it:** The `getTop10Stocks()` function uses `cheerio` and `axios` to iterate through the tabular data on this page (handling pagination via the `?page=X` query parameter). It extracts 9 fundamental metrics (like ROCE %, P/E, Market Cap, etc.), applies **Min-Max Normalization** to score them between 0 and 1, and then mathematically ranks the absolute Top 10 stocks to buy based on a weighted algorithmic formula.
 
-To learn more about Next.js, take a look at the following resources:
+### 2. The Individual Company Live Price Query
+🔗 **URL:** `https://www.screener.in/company/{STOCK_CODE}/`
+*   **What it does:** This URL points to a specific company's detailed fundamental page (e.g. `https://www.screener.in/company/TCS/`). It contains real-time summary ratios.
+*   **How the app uses it:** The `getCurrentPrice(stockCode)` function visits this URL specifically to scrape the **"Current Price"** (CMP) node from the DOM. This value is used by:
+    1.  The **Trading Engine**: To calculate exactly how many integer shares can be afforded with the available wallet cash, and to determine the net profit/loss on selling.
+    2.  The **Dashboard UI**: To render real-time valuation of the current holding positions and color-code the CMP red or green based on the initial entry price.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 Getting Started Locally
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Install Dependencies
+```bash
+npm install
+```
 
-## Deploy on Vercel
+2. Initialize the Prisma SQLite Database
+```bash
+npx prisma db push
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Run the Development Server
+```bash
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Open `http://localhost:3000` to view the dashboard! You can trigger the engine directly from the UI.
