@@ -1,6 +1,25 @@
-# QuantTrader - Quantitative Paper Trading System
+# QuantTrader - Quantitative Paper Trading System 📈
 
 A Next.js (App Router) based zero-touch quantitative paper trading system. This application automatically scrapes financial data, ranks stocks based on a custom algorithm, manages a virtual portfolio in a SQLite database, and provides a real-time interactive dashboard.
+
+## 🌟 `feat_multiple_screeners` Branch Features
+
+This branch introduces Native Multi-Tenant Sandboxing—the ability to run limitless parallel trading strategies without their data colliding.
+
+### 1. Isolated Sub-Wallets & Portfolios
+Every single Screener URL you add to the system creates a disjointed "sandbox".
+* **Independent Capital:** When a strategy runs for the first time, a fresh ₹1,000,000 (10 Lakhs) Wallet is instantiated strictly mapped to that Screener.
+* **Isolated Trading:** `Portfolio` holdings, `Transactions` (Buys/Sells), and `NetWorthHistory` records apply a cascading `screenerId` Foreign Key. A bad strategy's losses won't bleed into your high-dividend strategy's capital!
+
+### 2. Context-Aware Visual Dashboard
+The frontend `app/page.js` is now completely driven by URL parameters (`/?screenerId=XYZ`).
+* **Screener Manager Dropdown:** Allows you to instantly switch the entire app's context between databases views.
+* **Add Screeners on the Fly:** Click the `+` icon to save a new Name and Screener.in URL to the SQLite database.
+
+### 3. Safe Database Migration (`multi.db`)
+Rather than risking data corruption on your existing `dev.db`, this branch uses a brand new SQLite database file `multi.db` ensuring safe backwards compatibility with the primary project branch.
+
+---
 
 ## 🏗️ Project Structure
 
@@ -8,47 +27,54 @@ The project follows a standard Next.js App Router structure with dedicated direc
 
 ```text
 stocks_nodejs/
-├── app/                        # Next.js App Router (Frontend & API)
-│   ├── api/run-engine/         # Serverless API endpoint to manually trigger the trading engine
+├── app/                        
+│   ├── api/run-engine/         # POST endpoint to manually trigger a screener's engine
+│   ├── api/screeners/          # GET/POST endpoint to fetch & create Screener URLs
 │   ├── layout.js               # Root layout, includes the NextThemes provider
-│   ├── page.js                 # Main Dashboard Server Component (Fetches SQLite data)
+│   ├── page.js                 # Main Dashboard Server Component (Dynamically filtered by ?screenerId)
 │   └── globals.css             # Tailwind & Global styles
-├── components/                 # Reusable React UI Components
-│   ├── DashboardClient.js      # Client component spanning the "Force Run Engine" button and toast logic
-│   ├── HoldingsTable.js        # Server-rendered table displaying current portfolio & live CMP
+├── components/                 
+│   ├── DashboardClient.js      # Client component spanning the "Run Engine" dispatcher
+│   ├── ScreenerManager.js      # Dropdown selector and "Add Screener" Modal UI
+│   ├── HoldingsTable.js        # Server-rendered table displaying current isolated portfolio 
 │   ├── KPIStats.js             # Top-level cards for Net Worth, Cash, Deployed Capital
-│   ├── NetWorthChart.js        # Recharts interactive line chart
+│   ├── NetWorthChart.js        # Recharts interactive line chart showing isolated history
 │   ├── PortfolioAllocation.js  # Recharts pie chart for portfolio weighting
 │   ├── ThemeProvider.js        # next-themes wrapper
 │   └── TransactionsTable.js    # Paginated log of historical BUYS and SELLS
-├── lib/                        # Core Backend Logic
+├── lib/                        
 │   ├── engine.js               # Algorithmic Trading Engine (Sync, Sell, Buy, Value phases)
 │   ├── prisma.js               # Prisma ORM singleton client
-│   └── scraper.js              # Cheerio web scraper and normalization/ranking math
-├── prisma/                     # Database Schema & File
-│   ├── dev.db                  # Local SQLite database file
-│   └── schema.prisma           # Prisma Schema defining Wallet, Portfolio, Transaction, NetWorthHistory
-├── test-engine.js              # Sandbox script to test engine
-└── test-scraper.js             # Sandbox script to test Screener.in limits
+│   └── scraper.js              # Cheerio web scraper supporting dynamic screenerUrl ingestion
+├── prisma/                     
+│   ├── multi.db                # Local Sandbox SQLite database file
+│   └── schema.prisma           # Prisma Schema defining Screener, Wallet, Portfolio, Transaction, NetWorthHistory
+└── test-scripts/               # Sandbox scratchpads
 ```
+
+---
 
 ## 🔍 Key Screener URLs & How They Are Used
 
-This system relies on live market data scraped directly from [Screener.in](https://screener.in). 
+This system relies on live market data scraped directly from [Screener.in](https://screener.in). Rather than hardcoding one strategy, the application now supports injecting **any valid** Screener.in URL dynamically!
 
-The `lib/scraper.js` file primarily uses these two dynamic URLs:
-
-### 1. The Screen Ranking Query (Top 10 Finder)
-🔗 **URL:** `https://www.screener.in/screens/3506580/weekly-update/?page={X}`
-*   **What it does:** This URL points to a specific custom screen created on Screener.in that filters the entire Indian stock market down to a broad list of candidates based on specific fundamental minimums.
-*   **How the app uses it:** The `getTop10Stocks()` function uses `cheerio` and `axios` to iterate through the tabular data on this page (handling pagination via the `?page=X` query parameter). It extracts 9 fundamental metrics (like ROCE %, P/E, Market Cap, etc.), applies **Min-Max Normalization** to score them between 0 and 1, and then mathematically ranks the absolute Top 10 stocks to buy based on a weighted algorithmic formula.
+### 1. The Dynamic Strategy Query (Top 10 Finder)
+🔗 **Example URL:** `https://www.screener.in/screens/3506580/weekly-update/`
+*   **What it does:** This URL points to a custom filter/screen created on Screener.in. It narrows down the 4000+ Indian stocks into a targeted list based on fundamental minimums (e.g. "Debt to equity < 1 AND Market Cap > 500").
+*   **How the app uses it:** 
+    1. You add this URL via the Dashboard UI `+` Button.
+    2. When you click **Run Engine**, the `POST /api/run-engine` grabs this exact URL from the database for your active strategy.
+    3. The `getTop10Stocks(screenerUrl)` scraper loops through every page of results appending `?page={X}`. 
+    4. It extracts 9 fundamental metrics (like ROCE %, P/E, Market Cap, etc.), applies **Min-Max Normalization** to score them between 0 and 1, and mathematically ranks the absolute Top 10 stocks for that specific strategy.
 
 ### 2. The Individual Company Live Price Query
 🔗 **URL:** `https://www.screener.in/company/{STOCK_CODE}/`
 *   **What it does:** This URL points to a specific company's detailed fundamental page (e.g. `https://www.screener.in/company/TCS/`). It contains real-time summary ratios.
-*   **How the app uses it:** The `getCurrentPrice(stockCode)` function visits this URL specifically to scrape the **"Current Price"** (CMP) node from the DOM. This value is used by:
-    1.  The **Trading Engine**: To calculate exactly how many integer shares can be afforded with the available wallet cash, and to determine the net profit/loss on selling.
-    2.  The **Dashboard UI**: To render real-time valuation of the current holding positions and color-code the CMP red or green based on the initial entry price.
+*   **How the app uses it:** The `getCurrentPrice(stockCode)` function securely visits this URL specifically to scrape the **"Current Price"** (CMP) node from the DOM. This ensures your isolated simulation uses live, to-the-second market rates for:
+    1.  **Trading Execution**: Calculating exactly how many integer shares can be afforded with the given sandbox's cash.
+    2.  **Dashboard UI**: Rendering real-time valuation of the current holding positions and color-coding price deltas.
+
+---
 
 ## 🚀 Getting Started Locally
 
@@ -57,7 +83,7 @@ The `lib/scraper.js` file primarily uses these two dynamic URLs:
 npm install
 ```
 
-2. Initialize the Prisma SQLite Database
+2. Push the highly relational schema to `multi.db`
 ```bash
 npx prisma db push
 ```
@@ -67,4 +93,4 @@ npx prisma db push
 npm run dev
 ```
 
-4. Open `http://localhost:3000` to view the dashboard! You can trigger the engine directly from the UI.
+4. Open `http://localhost:3000` to view the dashboard! You will be prompted to add your first Custom Screener Strategy.
