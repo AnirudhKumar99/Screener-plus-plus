@@ -18,7 +18,7 @@ model Screener {
 }
 
 model Wallet {
-  id          Int      @id @default(1)
+  id          Int      @id @default(autoincrement())
   screenerId  String   @unique
   screener    Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
   cashBalance Float
