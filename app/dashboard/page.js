@@ -9,6 +9,9 @@ import { DashboardClient } from '@/components/DashboardClient';
 import { ScreenerManager } from '@/components/ScreenerManager';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TrendingUp } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
+import { LogoutButton } from '@/components/LogoutButton';
 
 // Next.js config to ensure this route is always dynamically rendered
 export const dynamic = 'force-dynamic';
@@ -18,8 +21,21 @@ export default async function DashboardPage({ searchParams }) {
     const awaitedParams = await searchParams;
     const activeScreenerId = awaitedParams.screenerId;
 
-    // Fetch all screeners broadly available
-    const screeners = await prisma.screener.findMany({ orderBy: { name: 'asc' } });
+    // Fetch User context
+    const cookieStore = await cookies();
+    const token = cookieStore.get('authToken')?.value;
+    const decoded = await verifyToken(token);
+    const userId = decoded?.userId;
+
+    if (!userId) {
+        return <div>Unauthorized. Please log in.</div>;
+    }
+
+    // Fetch all screeners broadly available for this specific user
+    const screeners = await prisma.screener.findMany({
+        where: { userId },
+        orderBy: { name: 'asc' }
+    });
 
     // If no activeScreenerId is selected but we have screeners, we default to showing the UI blanked out needing selection
     const activeScreener = screeners.find(s => s.id === activeScreenerId);
@@ -78,6 +94,7 @@ export default async function DashboardPage({ searchParams }) {
                 <div className="flex items-center space-x-4">
                     <ScreenerManager initialScreeners={screeners} />
                     <ThemeToggle />
+                    <LogoutButton />
                     <DashboardClient activeScreenerId={activeScreenerId} />
                 </div>
             </div>
