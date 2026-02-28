@@ -38,12 +38,13 @@ export default async function DashboardPage({ searchParams }) {
         orderBy: { qty: 'desc' }
     }) : [];
 
-    // Calculate current holdings valuation and fetch live CMP
-    const portfolioWithPrices = await Promise.all(portfolio.map(async (item) => {
+    // Calculate current holdings valuation and fetch live CMP sequentially to prevent 429
+    const portfolioWithPrices = [];
+    for (const item of portfolio) {
         let cmp = await getCurrentPrice(item.stockCode);
         if (!cmp) cmp = item.avgBuyPrice;
-        return { ...item, cmp };
-    }));
+        portfolioWithPrices.push({ ...item, cmp });
+    }
 
     const holdingsValuation = portfolioWithPrices.reduce((sum, item) => sum + (item.qty * item.cmp), 0);
     const currentNetWorth = currentCash + holdingsValuation;
