@@ -23,7 +23,8 @@
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
-    "user-agents": "^1.1.669"
+    "user-agents": "^1.1.669",
+    "vercel": "^50.25.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
