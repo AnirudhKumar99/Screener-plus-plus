@@ -48,9 +48,9 @@ export function ScreenerManager({ initialScreeners }) {
     const handleSelect = (e) => {
         const id = e.target.value;
         if (id) {
-            router.push(`/?screenerId=${id}`);
+            router.push(`/dashboard?screenerId=${id}`);
         } else {
-            router.push('/');
+            router.push('/dashboard');
         }
     };
 
@@ -69,8 +69,14 @@ export function ScreenerManager({ initialScreeners }) {
                 setIsModalOpen(false);
                 setName('');
                 setUrl('');
-                toast.success('Screener created!');
-                router.push(`/?screenerId=${newScreener.id}`);
+                // Reset weights to default
+                setWeights({
+                    wRoce: 0.15, wRoce3Yr: 0.15, wQtrProfitVar: 0.10,
+                    wQtrSalesVar: 0.10, wProfitVar3Yrs: 0.10, wSalesVar3Yrs: 0.10,
+                    wDivYld: 0.05, wMarCap: 0.05, wInvertedPe: 0.20
+                });
+                toast.success('Strategy created!');
+                router.push(`/dashboard?screenerId=${newScreener.id}`);
             } else {
                 toast.error('Failed to create screener');
             }
