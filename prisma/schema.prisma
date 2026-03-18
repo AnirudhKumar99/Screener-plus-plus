@@ -7,10 +7,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String     @id @default(uuid())
+  username  String     @unique
+  password  String
+  screeners Screener[]
+}
+
 model Screener {
   id              String            @id @default(uuid())
   name            String
   url             String
+
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Algorithm Weights
+  wRoce           Float             @default(0.15)
+  wRoce3Yr        Float             @default(0.15)
+  wQtrProfitVar   Float             @default(0.10)
+  wQtrSalesVar    Float             @default(0.10)
+  wProfitVar3Yrs  Float             @default(0.10)
+  wSalesVar3Yrs   Float             @default(0.10)
+  wDivYld         Float             @default(0.05)
+  wMarCap         Float             @default(0.05)
+  wInvertedPe     Float             @default(0.20)
+
   wallet          Wallet?
   portfolios      Portfolio[]
   transactions    Transaction[]

@@ -6,10 +6,15 @@ export const maxDuration = 60; // 60 seconds execution limit
 
 export async function POST(request) {
     try {
+        const userId = request.headers.get('x-user-id');
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET || 'dev-secret-token';
 
-        if (authHeader !== `Bearer ${cronSecret}`) {
+        let isValidTrigger = false;
+        if (userId) isValidTrigger = true;
+        else if (authHeader === `Bearer ${cronSecret}`) isValidTrigger = true;
+
+        if (!isValidTrigger) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -18,6 +23,13 @@ export async function POST(request) {
 
         if (!screenerId) {
             return NextResponse.json({ error: 'Missing screenerId' }, { status: 400 });
+        }
+
+        if (userId) {
+            const screener = await prisma.screener.findUnique({ where: { id: screenerId } });
+            if (!screener || screener.userId !== userId) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         }
 
         const result = await runTradingEngine(screenerId);
