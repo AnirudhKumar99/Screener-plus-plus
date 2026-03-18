@@ -9,8 +9,7 @@ import { DashboardClient } from '@/components/DashboardClient';
 import { ScreenerManager } from '@/components/ScreenerManager';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { TrendingUp } from 'lucide-react';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
+import { createClient } from '@/utils/supabase/server';
 import { LogoutButton } from '@/components/LogoutButton';
 
 // Next.js config to ensure this route is always dynamically rendered
@@ -22,14 +21,27 @@ export default async function DashboardPage({ searchParams }) {
     const activeScreenerId = awaitedParams.screenerId;
 
     // Fetch User context
-    const cookieStore = await cookies();
-    const token = cookieStore.get('authToken')?.value;
-    const decoded = await verifyToken(token);
-    const userId = decoded?.userId;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
 
     if (!userId) {
         return <div>Unauthorized. Please log in.</div>;
     }
+
+    // Ensure the Supabase authenticated User is synced to our local Prisma database
+    // This is required before any API attempts to add a Screener with a foreign key to the User table.
+    await prisma.user.upsert({
+        where: { id: userId },
+        update: {
+            email: user.email,
+        },
+        create: {
+            id: userId,
+            username: user.user_metadata?.username || user.user_metadata?.full_name || user.email.split('@')[0],
+            email: user.email,
+        }
+    });
 
     // Fetch all screeners broadly available for this specific user
     const screeners = await prisma.screener.findMany({
