@@ -78,7 +78,7 @@ export default async function DashboardPage({ searchParams }) {
     const currentNetWorth = currentCash + holdingsValuation;
 
     // Total Capital deployed is the sum of avg entry valuations
-    const deployedCapital = holdingsValuation;
+    const deployedCapital = portfolioWithPrices.reduce((sum, item) => sum + (item.qty * item.avgBuyPrice), 0);
 
     // Fetch net worth history for chart
     const history = activeScreenerId ? await prisma.netWorthHistory.findMany({
